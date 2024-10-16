@@ -4,10 +4,10 @@ const asyncHandler = require("express-async-handler");
 const validateMongoDbId = require("../utils/validateMgdbId");
 const cloudinaryUploadImg = require("../utils/cloudinary");
 const Image = require("../models/imageModel");
-const { analyzeImage } = require("../utils/googleVision"); // Importing the function
+const { analyzeImage } = require("../utils/googleVision");
+const { scrapeTutorials } = require("../utils/webScraper");  // Web scraping function
+const { findRelevantTutorial } = require("../config/nlp");  // NLP matching function
 require('dotenv').config();
-
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const uploadImages = asyncHandler(async (req, res) => {
   console.log("Request Body:", req.body);
@@ -53,16 +53,17 @@ const uploadImages = asyncHandler(async (req, res) => {
       console.log("Processing file:", filePath);
 
       try {
+        // Upload image to Cloudinary
         const result = await uploader(filePath);
         const imageUrl = result.url;
 
         console.log("Cloudinary URL:", imageUrl);
 
-        // Analyze image with Google Vision (now in a separate file)
+        // Analyze image using Google Vision API
         const labels = await analyzeImage(imageUrl);
         console.log("Extracted labels:", labels);
 
-        // Clean up uploaded file
+        // Clean up the local file after processing
         fs.unlinkSync(filePath);
         console.log("Cleaned up file:", filePath);
 
@@ -75,7 +76,19 @@ const uploadImages = asyncHandler(async (req, res) => {
         });
         console.log("Saved image to database:", newImage);
 
-        uploadedImages.push(newImage);
+        // Convert labels into a search query using NLP
+        const searchQuery = findRelevantTutorial(labels);  // Process the image labels with NLP
+        console.log("NLP search query:", searchQuery);
+
+        // Scrape tutorials based on the NLP-processed search query
+        const tutorials = await scrapeTutorials(searchQuery);
+        console.log("Scraped Tutorials:", tutorials);
+
+        // Push image and tutorial data to the response array
+        uploadedImages.push({
+          image: newImage,
+          tutorials,  // Attach relevant tutorials (scraped)
+        });
 
       } catch (error) {
         console.error("Error processing image:", error);
@@ -86,6 +99,7 @@ const uploadImages = asyncHandler(async (req, res) => {
       }
     }
 
+    // Send back the processed images and matched tutorials
     res.json({
       message: "Images uploaded and analyzed successfully",
       images: uploadedImages,

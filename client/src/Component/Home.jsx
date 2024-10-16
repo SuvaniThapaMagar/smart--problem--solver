@@ -112,7 +112,10 @@ const Home = () => {
   return (
     <div className="relative min-h-screen flex flex-col">
       {/* Header */}
-      <div className="flex justify-between items-center p-4 bg-gray-100">
+      <div className="flex justify-between items-center p-4">
+        {/* Other Header Content */}
+        <div className="flex-1"></div>{" "}
+        {/* This empty div will push content to the right */}
         {/* Profile Icon */}
         <div className="relative">
           <button onClick={toggleDropdown}>
@@ -157,23 +160,29 @@ const Home = () => {
           <div className="mt-10">
             <h2 className="text-lg font-bold">Uploaded Images:</h2>
             {uploadedImages.map((image, index) => (
-  <div key={index} className="my-4">
-    <img src={image.imageUrl} alt={`Uploaded ${index}`} className="max-w-xs" />
-    <h3 className="font-semibold">Labels:</h3>
-    <ul>
-      {Array.isArray(image.labels) ? (
-        image.labels.map((label, idx) => (
-          <li key={idx}>
-            {label.description || 'Unknown'} - Confidence: 
-            {label.score ? `${Math.round(label.score * 100)}%` : 'N/A'}
-          </li>
-        ))
-      ) : (
-        <li>No labels available</li>
-      )}
-    </ul>
-  </div>
-))}
+              <div key={index} className="my-4">
+                <img
+                  src={image.imageUrl}
+                  alt={`Uploaded ${index}`}
+                  className="max-w-xs"
+                />
+                <h3 className="font-semibold">Labels:</h3>
+                <ul>
+                  {Array.isArray(image.labels) ? (
+                    image.labels.map((label, idx) => (
+                      <li key={idx}>
+                        {label.description || "Unknown"} - Confidence:
+                        {label.score
+                          ? `${Math.round(label.score * 100)}%`
+                          : "N/A"}
+                      </li>
+                    ))
+                  ) : (
+                    <li>No labels available</li>
+                  )}
+                </ul>
+              </div>
+            ))}
           </div>
         )}
       </div>
