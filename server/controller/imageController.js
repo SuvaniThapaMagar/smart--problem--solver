@@ -5,19 +5,25 @@ const validateMongoDbId = require("../utils/validateMgdbId");
 const cloudinaryUploadImg = require("../utils/cloudinary");
 const Image = require("../models/imageModel");
 const { analyzeImage } = require("../utils/googleVision");
-const { scrapeTutorials } = require("../utils/webScraper");  // Web scraping function
-const { findRelevantTutorial } = require("../config/nlp");  // NLP matching function
-require('dotenv').config();
+const { scrapeTutorials } = require("../utils/webScraper");
+const { findRelevantTutorial } = require("../config/nlp");
+require("dotenv").config();
 
 const uploadImages = asyncHandler(async (req, res) => {
   console.log("Request Body:", req.body);
   console.log("Request Files:", req.files);
 
-  const { userId } = req.body;
+  const { userId, description } = req.body;
   console.log("Received userId:", userId);
+  console.log("Received description:", description);
 
-  if (!userId || userId === 'null') {
+  // Input validation
+  if (!userId || userId === "null") {
     return res.status(400).json({ message: "Valid userId is required" });
+  }
+
+  if (!description) {
+    return res.status(400).json({ message: "Image description is required" });
   }
 
   try {
@@ -28,6 +34,7 @@ const uploadImages = asyncHandler(async (req, res) => {
   }
 
   try {
+    // Cloudinary upload function
     const uploader = async (filePath) => {
       console.log("Attempting to upload to Cloudinary:", filePath);
       try {
@@ -46,69 +53,83 @@ const uploadImages = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: "No files uploaded" });
     }
 
-    const uploadedImages = [];
+    const processedResults = [];
 
     for (const file of files) {
       const filePath = file.path;
       console.log("Processing file:", filePath);
 
       try {
-        // Upload image to Cloudinary
+        // Upload to Cloudinary
         const result = await uploader(filePath);
         const imageUrl = result.url;
-
         console.log("Cloudinary URL:", imageUrl);
 
-        // Analyze image using Google Vision API
+        // Analyze with Google Vision
         const labels = await analyzeImage(imageUrl);
         console.log("Extracted labels:", labels);
 
-        // Clean up the local file after processing
+        // Clean up local file
         fs.unlinkSync(filePath);
         console.log("Cleaned up file:", filePath);
 
-        // Save the image with labels to the database
-        const newImage = await Image.create({
+        // Save image to database
+        const savedImage = await Image.create({
           user: userId,
           imageUrl: imageUrl,
+          description: description,
           labels: labels,
-          status: 'processed',
+          status: "processed",
         });
-        console.log("Saved image to database:", newImage);
+        console.log("Saved image to database:", savedImage);
 
-        // Convert labels into a search query using NLP
-        const searchQuery = findRelevantTutorial(labels);  // Process the image labels with NLP
-        console.log("NLP search query:", searchQuery);
+        // Process labels and search for tutorials
+        let tutorials = {
+          youtubeVideo: { title: '', link: '' },
+          googleLinks: []
+        };
 
-        // Scrape tutorials based on the NLP-processed search query
-        const tutorials = await scrapeTutorials(searchQuery);
-        console.log("Scraped Tutorials:", tutorials);
+        try {
+          // Create search query using description and top labels
+          const searchQuery = description + " " + 
+            labels.slice(0, 3).map(label => label.description).join(" ") + 
+            " tutorial";
+          console.log("Search query:", searchQuery);
 
-        // Push image and tutorial data to the response array
-        uploadedImages.push({
-          image: newImage,
-          tutorials,  // Attach relevant tutorials (scraped)
+          // Get tutorials with retry mechanism
+          tutorials = await scrapeTutorials(searchQuery);
+          console.log("Scraped Tutorials:", tutorials);
+        } catch (tutorialError) {
+          console.error("Error scraping tutorials:", tutorialError);
+          // Continue with empty tutorials object rather than failing
+        }
+
+        // Add processed result to array
+        processedResults.push({
+          image: savedImage,
+          tutorials: tutorials
         });
 
       } catch (error) {
         console.error("Error processing image:", error);
-        if (error.response) {
-          console.error("Error response:", error.response.data);
+        // Clean up file if it exists
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
         }
-        return res.status(500).json({ message: "Error uploading or processing image", error: error.message });
+        throw error;
       }
     }
 
-    // Send back the processed images and matched tutorials
-    res.json({
-      message: "Images uploaded and analyzed successfully",
-      images: uploadedImages,
-    });
-    console.log("Sending response to frontend:", uploadedImages);
+    // Send response
+    res.status(200).json(processedResults);
+    console.log("Sending response to frontend:", processedResults);
 
   } catch (error) {
     console.error("Unexpected error:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res.status(500).json({ 
+      message: "Internal server error", 
+      error: error.message 
+    });
   }
 });
 

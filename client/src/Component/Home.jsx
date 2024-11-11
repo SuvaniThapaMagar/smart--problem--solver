@@ -6,8 +6,9 @@ import { BsUpload } from "react-icons/bs";
 const Home = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [file, setFile] = useState(null);
+  const [description, setDescription] = useState(""); // New state for description
   const [userId, setUserId] = useState(null);
-  const [uploadedImages, setUploadedImages] = useState([]); // New state for uploaded images
+  const [uploadedImages, setUploadedImages] = useState([]); // State for uploaded images
   const [loading, setLoading] = useState(false); // Loading state
   const navigate = useNavigate();
 
@@ -41,9 +42,18 @@ const Home = () => {
     setFile(event.target.files[0]);
   };
 
+  const handleDescriptionChange = (event) => {
+    setDescription(event.target.value);
+  };
+
   const handleUpload = async () => {
     if (!file) {
       alert("Please select an image to upload.");
+      return;
+    }
+
+    if (!description) {
+      alert("Please enter a description.");
       return;
     }
 
@@ -63,12 +73,8 @@ const Home = () => {
 
     const formData = new FormData();
     formData.append("images", file);
+    formData.append("description", description); // Add description to the form data
     formData.append("userId", userId);
-
-    // Log formData contents (for debugging)
-    for (let [key, value] of formData.entries()) {
-      console.log(`${key}: ${value}`);
-    }
 
     setLoading(true); // Set loading state to true
 
@@ -91,15 +97,16 @@ const Home = () => {
 
       const data = await response.json();
       console.log("Success data:", data);
-      alert("Image uploaded successfully");
 
-      // Update the uploaded images state with the returned images
-      setUploadedImages(data.images);
+      // Ensure we're setting the correct data structure
+      // If data.images exists, use it; otherwise, wrap the data in an array
+      setUploadedImages(data.images || [data] || []);
+      alert("Image and description uploaded successfully");
     } catch (error) {
       console.error("Error object:", error);
       alert(`Failed to upload image: ${error.message}`);
     } finally {
-      setLoading(false); // Reset loading state
+      setLoading(false);
     }
   };
 
@@ -107,22 +114,17 @@ const Home = () => {
   if (userId === null || userId === "unauthenticated") {
     return null; // or a loading indicator
   }
-  console.log("Sending response to frontend:", uploadedImages);
 
   return (
-    <div className="relative min-h-screen flex flex-col">
+    <div className="relative min-h-screen flex flex-col items-center bg-gray-50">
       {/* Header */}
-      <div className="flex justify-between items-center p-4">
-        {/* Other Header Content */}
-        <div className="flex-1"></div>{" "}
-        {/* This empty div will push content to the right */}
+      <div className="w-full flex justify-between items-center p-4">
+        <div className="flex-1"></div> {/* Push content to the right */}
         {/* Profile Icon */}
         <div className="relative">
           <button onClick={toggleDropdown}>
             <IoPersonOutline className="text-2xl" />
           </button>
-
-          {/* Dropdown Menu */}
           {dropdownOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg">
               <ul className="py-2">
@@ -139,52 +141,91 @@ const Home = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-grow flex flex-col justify-center items-center">
-        <h1 className="text-lg font-bold text-center">
+      <div className="flex-grow w-full flex flex-col justify-center items-center p-8">
+        <h1 className="text-xl font-bold text-center mb-4">
           What problem did you encounter today?
         </h1>
-        <p className="text-center">Upload your image to get your solution</p>
+        <p className="text-center mb-6">
+          Upload your image to get your solution
+        </p>
 
-        {/* Image Upload */}
-        <input type="file" accept="image/*" onChange={handleFileChange} />
+        {/* Image Upload and Description Input */}
+        <input
+          type="file"
+          accept="image/*"
+          className="mb-4"
+          onChange={handleFileChange}
+        />
+        <textarea
+          placeholder="Write a description of the problem"
+          value={description}
+          onChange={handleDescriptionChange}
+          className="w-full max-w-md border border-gray-300 p-2 mb-6"
+        />
         <button
-          className="mt-10 border border-black p-4"
+          className="mb-6 border border-black px-6 py-2 hover:bg-gray-200"
           onClick={handleUpload}
-          disabled={loading} // Disable button while loading
+          disabled={loading}
         >
-          {loading ? "Uploading..." : "Upload Image"} <BsUpload />
+          {loading ? "Uploading..." : "Upload Image & Description"} <BsUpload />
         </button>
 
-        {/* Display Uploaded Images */}
-        {uploadedImages.length > 0 && (
-          <div className="mt-10">
-            <h2 className="text-lg font-bold">Uploaded Images:</h2>
-            {uploadedImages.map((image, index) => (
-              <div key={index} className="my-4">
-                <img
-                  src={image.imageUrl}
-                  alt={`Uploaded ${index}`}
-                  className="max-w-xs"
-                />
-                <h3 className="font-semibold">Labels:</h3>
-                <ul>
-                  {Array.isArray(image.labels) ? (
-                    image.labels.map((label, idx) => (
-                      <li key={idx}>
-                        {label.description || "Unknown"} - Confidence:
-                        {label.score
-                          ? `${Math.round(label.score * 100)}%`
-                          : "N/A"}
-                      </li>
-                    ))
-                  ) : (
-                    <li>No labels available</li>
-                  )}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
+        
+
+        {/* Two-column layout */}
+        <div className="flex justify-between w-full max-w-4xl">
+          {/* Left side for images */}
+          {/* Right side for links */}
+          <div className="ml-4 w-1/4">
+  <div className="flex flex-col space-y-4">
+    {Array.isArray(uploadedImages) && uploadedImages.length > 0 ? (
+      uploadedImages.map((imageData, index) => (
+        <div key={index} className="space-y-2">
+          <h3 className="font-bold">Related Tutorials:</h3>
+
+          {/* YouTube Video */}
+          {imageData.tutorials?.youtubeVideo && (
+            <div>
+              <h4 className="font-semibold">Recommended Video:</h4>
+              <a
+                href={imageData.tutorials.youtubeVideo.link}  // Link to the video
+                className="text-blue-500 hover:underline block"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {imageData.tutorials.youtubeVideo.title} {/* Title of the video */}
+              </a>
+            </div>
+          )}
+
+          {/* Google Links */}
+          {Array.isArray(imageData.tutorials?.googleLinks) && imageData.tutorials.googleLinks.length > 0 && (
+            <div>
+              <h4 className="font-semibold">Related Links:</h4>
+              {imageData.tutorials.googleLinks.map((link, linkIndex) => (
+                <a
+                  key={linkIndex}
+                  href={link.link}  // Link to the resource
+                  className="text-blue-500 hover:underline block"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {link.title} {/* Title of the link */}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      ))
+    ) : (
+      <p>No tutorials available yet.</p>
+    )}
+  </div>
+</div>
+
+
+
+        </div>
       </div>
     </div>
   );

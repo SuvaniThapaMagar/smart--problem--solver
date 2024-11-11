@@ -11,6 +11,17 @@ const processText = (text) => {
 
 // Function to find relevant tutorials by comparing image labels with tutorial keywords
 const findRelevantTutorial = (labels, tutorials) => {
+  // Validate input for labels and tutorials
+  if (!Array.isArray(labels)) {
+    console.error("Error: 'labels' is not an array or is undefined:", labels);
+    return []; // Return an empty array if labels is not valid
+  }
+  
+  if (!Array.isArray(tutorials)) {
+    console.error("Error: 'tutorials' is not an array or is undefined:", tutorials);
+    return []; // Return an empty array if tutorials is not valid
+  }
+
   const relevantTutorials = [];
 
   // Loop through the tutorials and compare keywords with labels

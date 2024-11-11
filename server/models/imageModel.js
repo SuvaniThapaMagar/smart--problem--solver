@@ -11,6 +11,10 @@ const imageSchema = new mongoose.Schema(
       type: String, // URL to the image in Cloudinary or other storage
       required: true,
     },
+    description: {
+      type: String,  // Add this field for the image description
+      required: true,
+    },
     labels: [
       {
         description: String,
